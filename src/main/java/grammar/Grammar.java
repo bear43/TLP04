@@ -1,0 +1,207 @@
+package grammar;
+
+import lombok.Data;
+
+import java.io.Serializable;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+@Data
+public class Grammar implements Cloneable, Serializable {
+    private Set<Character> terminalCharacterSet;
+
+    private Set<Character> nonTerminalCharacterSet;
+
+    private List<Rule> ruleList;
+
+    private Character startSymbol;
+
+    private Character newNonTerminalCharacter = 'Ψ';
+
+    public class TerminalService implements Serializable {
+        public Set<Character> getParentsAsCharSet(Character terminal) {
+            return ruleList.stream().filter(x ->
+                    x.doesRightOperandContainTerminal(terminal)
+            ).map(Rule::getLeftOperand).collect(Collectors.toSet());
+        }
+
+        public Set<Rule> getParentsAsRuleSet(Character terminal) {
+            return getRuleSetByNonTerminalCharStream(getParentsAsCharSet(terminal).stream());
+        }
+
+        public Set<Set<Rule>> getParentsAsSetOfRuleSet(Character terminal) {
+            return getParentsAsCharSet(terminal).stream().map(Grammar.this::getRuleSetByNonTerminal).collect(Collectors.toSet());
+        }
+
+        public Set<Character> getChildrenAsCharSet(Character nonTerminal) {
+            return ruleList.stream()
+                    .filter(x -> x.getLeftOperand().equals(nonTerminal))
+                    .map(x -> x.getTerminals(terminalCharacterSet))
+                    .reduce((a, b) -> {
+                        a.addAll(b);
+                        return a;
+                    })
+                    .orElse(new HashSet<>());
+        }
+
+        public boolean isDerivedByStartSymbol(Character terminal) {
+            Set<Character> charSet = getParentsAsCharSet(terminal);
+            for(Character ch : charSet) {
+                if(nonTerminalService.isDerivedByStartSymbol(ch, true)) return true;
+            }
+            return false;
+        }
+    }
+
+    public class NonTerminalService implements Serializable {
+        public Set<Character> getParentsAsCharSet(Character nonTerminal, boolean excludeRecursion) {
+            return ruleList.stream().filter(
+                    x ->
+                            x.doesRightOperandContainNonTerminal(nonTerminal) &&
+                                    !(excludeRecursion && x.getLeftOperand().equals(nonTerminal))
+            ).map(Rule::getLeftOperand).collect(Collectors.toSet());
+        }
+
+        public Set<Rule> getParentsAsRuleSet(Character nonTerminal, boolean excludeRecursion) {
+            return getRuleSetByNonTerminalCharStream(getParentsAsCharSet(nonTerminal, excludeRecursion).stream());
+        }
+
+        public Set<Set<Rule>> getParentsAsSetOfRuleSet(Character nonTerminal, boolean excludeRecursion) {
+            return getParentsAsCharSet(nonTerminal, excludeRecursion).stream().map(Grammar.this::getRuleSetByNonTerminal).collect(Collectors.toSet());
+        }
+
+        public Set<Character> getChildrenAsCharSet(Character nonTerminal, boolean excludeRecursion) {
+            return ruleList.stream()
+                    .filter(x -> x.getLeftOperand().equals(nonTerminal))
+                    .map(x -> x.getNonTerminals(nonTerminalCharacterSet, excludeRecursion))
+                    .reduce((a, b) -> {
+                        a.addAll(b);
+                        return a;
+                    })
+                    .orElse(new HashSet<>());
+        }
+
+        public Set<Rule> getChildrenAsRuleSet(Character nonTerminal, boolean excludeRecursion) {
+            return getRuleSetByNonTerminalCharStream(getChildrenAsCharSet(nonTerminal, excludeRecursion).stream());
+        }
+
+        public boolean leadsToTerminal(Character nonTerminal, boolean strictly) {
+            if(!terminalService.getChildrenAsCharSet(nonTerminal).isEmpty()) {
+                if(strictly) {
+                    return nonTerminalService.getChildrenAsRuleSet(nonTerminal, false).stream()
+                            .anyMatch(x -> x.isPureTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet));
+                }
+                return true;
+            }
+            Set<Character> childrenCharSet = getChildrenAsCharSet(nonTerminal, true);
+            if(!childrenCharSet.isEmpty()) {
+                for(Character ch : childrenCharSet) {
+                    if(leadsToTerminal(ch, strictly)) return true;
+                }
+            }
+            return false;
+        }
+
+        public boolean isDerivedByStartSymbol(Character nonTerminal, boolean excludeRecursion) {
+            if(nonTerminal.equals(startSymbol)) return true;
+            Set<Character> characterSet = getParentsAsCharSet(nonTerminal, excludeRecursion);
+            if(!characterSet.isEmpty())
+                for(Character ch : characterSet) {
+                    if (isDerivedByStartSymbol(ch, excludeRecursion)) return true;
+                }
+            return false;
+        }
+    }
+
+    public TerminalService terminalService = new TerminalService();
+
+    public NonTerminalService nonTerminalService = new NonTerminalService();
+
+    private static final Character EPSILON = 'ε';
+
+    public Grammar(Set<Character> terminalCharacterSet, Set<Character> nonTerminalCharacterSet, Character startSymbol, List<Rule>... ruleList) {
+        this.terminalCharacterSet = terminalCharacterSet;
+        this.nonTerminalCharacterSet = nonTerminalCharacterSet;
+        this.ruleList = new ArrayList<>();
+        for (List<Rule> rules : ruleList) {
+            this.ruleList.addAll(rules);
+        }
+        this.startSymbol = startSymbol;
+    }
+
+    public Grammar() {}
+
+    public static Character getEPSILON() {
+        return EPSILON;
+    }
+
+    private void incrementCharacter() {
+        newNonTerminalCharacter = newNonTerminalCharacter++;
+    }
+
+    public Character getNewCharacterWithIncrement() {
+        Character ch = newNonTerminalCharacter;
+        incrementCharacter();
+        return ch;
+    }
+
+    public Set<Rule> getRuleSetByNonTerminal(Character nonTerminal) {
+        return ruleList.stream().filter(x -> x.getLeftOperand().equals(nonTerminal)).collect(Collectors.toSet());
+    }
+
+    public void removeNonTerminalAndItsRules(Character nonTerminal) {
+        getRuleSetByNonTerminal(nonTerminal).forEach(ruleList::remove);
+    }
+
+    public void removeNonTerminal(Character nonTerminal) {
+        nonTerminalService.getParentsAsRuleSet(nonTerminal, true).stream()
+                .filter(x -> x.doesRightOperandContainNonTerminal(nonTerminal))
+                .forEach(x -> {
+                    ruleList.remove(x);
+                });
+        removeNonTerminalAndItsRules(nonTerminal);
+        nonTerminalCharacterSet.remove(nonTerminal);
+    }
+
+    public void removeTerminal(Character terminal) {
+        ruleList.stream()
+                .filter(x -> x.doesRightOperandContainTerminal(terminal) && x.isPureTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet))
+                .forEach(ruleList::remove);
+        terminalCharacterSet.remove(terminal);
+    }
+
+    public List<Rule> getEpsilonRules() {
+        return ruleList.stream()
+                .filter(x -> x.isEpsilon(EPSILON))
+                .collect(Collectors.toList());
+    }
+
+    private Set<Rule> getRuleSetByNonTerminalCharStream(Stream<Character> charStream) {
+        return charStream.map(this::getRuleSetByNonTerminal).reduce((a, b) -> {
+            a.addAll(b);
+            return a;
+        }).orElse(new HashSet<>());
+    }
+
+    public Grammar clone() {
+        try {
+            return (Grammar) super.clone();
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    public String toString() {
+        StringBuilder
+                nonTerminals = new StringBuilder(),
+                terminals = new StringBuilder(),
+                rules = new StringBuilder();
+        nonTerminalCharacterSet.forEach(x -> nonTerminals.append(x).append("\n"));
+        terminalCharacterSet.forEach(x -> terminals.append(x).append("\n"));
+        ruleList.forEach(x -> rules.append(x.toString()).append("\n"));
+        return String.format("NonTerminals:\n%s\nTerminals:\n%s\nStartSym: %s\nRules:\n%s",
+                nonTerminals.toString(), terminals.toString(), startSymbol.toString(), rules.toString());
+    }
+
+}
