@@ -5,6 +5,7 @@ import util.Util;
 
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -13,15 +14,15 @@ import java.util.stream.StreamSupport;
 public class Rule implements Serializable {
     private Character leftOperand;
 
-    private Set<Character> rightOperand;
+    private List<Character> rightOperand;
 
-    public Rule(Character leftOperand, Set<Character> rightOperand) {
+    public Rule(Character leftOperand, List<Character> rightOperand) {
         this.leftOperand = leftOperand;
         this.rightOperand = rightOperand;
     }
 
     public Rule(Character leftOperand, String rightOperand) {
-        this(leftOperand, rightOperand.chars().boxed().map(x -> (char)x.intValue()).collect(Collectors.toSet()));
+        this(leftOperand, rightOperand.chars().boxed().map(x -> (char)x.intValue()).collect(Collectors.toList()));
     }
 
     public Set<Character> getTerminals(Set<Character> terminalSet) {
@@ -42,8 +43,27 @@ public class Rule implements Serializable {
         return rightOperand.contains(nonTerminal);
     }
 
+    public boolean doesRightOperandContainNextSequence(String sequence) {
+        StringBuilder sb = concatRightOperandToStringBuilder();
+        return sb.toString().contains(sequence);
+    }
+
+    public String concatRightOperandToString() {
+        return concatRightOperandToStringBuilder().toString();
+    }
+
+    private StringBuilder concatRightOperandToStringBuilder() {
+        StringBuilder stringBuilder = new StringBuilder();
+        rightOperand.forEach(stringBuilder::append);
+        return stringBuilder;
+    }
+
     public boolean isPureTerminalInRightOperand(Set<Character> terminalCharacterSet, Set<Character> nonTerminalCharacterSet) {
         return !getTerminals(terminalCharacterSet).isEmpty() && getNonTerminals(nonTerminalCharacterSet, false).isEmpty();
+    }
+
+    public boolean isPureNonTerminalInRightOperand(Set<Character> terminalCharacterSet, Set<Character> nonTerminalCharacterSet) {
+        return getTerminals(terminalCharacterSet).isEmpty() && !getNonTerminals(nonTerminalCharacterSet, false).isEmpty();
     }
 
     public boolean isEpsilon(Character epsilonChar) {

@@ -1,6 +1,7 @@
 import gc.EpsilonCollector;
 import gc.UselessCollector;
 import grammar.Grammar;
+import util.GarbageManager;
 import util.RuleListFactory;
 
 import java.util.Arrays;
@@ -21,8 +22,7 @@ public class Main {
                 RuleListFactory.createRuleList('Z', new String[] { "Zz$" }),
                 RuleListFactory.createRuleList('K', new String[] { "Kk$", "k$" }));
         System.out.println(grammar);
-        new UselessCollector().clean(grammar);
-        new EpsilonCollector().clean(grammar);
+        new GarbageManager().doWork(grammar);
         System.out.println(grammar);
     }
 }

@@ -13,7 +13,7 @@ public class Grammar implements Cloneable, Serializable {
 
     private Set<Character> nonTerminalCharacterSet;
 
-    private List<Rule> ruleList;
+    private Set<Rule> ruleList;
 
     private Character startSymbol;
 
@@ -34,9 +34,11 @@ public class Grammar implements Cloneable, Serializable {
             return getParentsAsCharSet(terminal).stream().map(Grammar.this::getRuleSetByNonTerminal).collect(Collectors.toSet());
         }
 
-        public Set<Character> getChildrenAsCharSet(Character nonTerminal) {
+        public Set<Character> getChildrenAsCharSet(Character nonTerminal, boolean pureTerminal) {
             return ruleList.stream()
-                    .filter(x -> x.getLeftOperand().equals(nonTerminal))
+                    .filter(x -> x.getLeftOperand().equals(nonTerminal) &&
+                            (!pureTerminal ||
+                                    x.isPureTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet)))
                     .map(x -> x.getTerminals(terminalCharacterSet))
                     .reduce((a, b) -> {
                         a.addAll(b);
@@ -71,9 +73,11 @@ public class Grammar implements Cloneable, Serializable {
             return getParentsAsCharSet(nonTerminal, excludeRecursion).stream().map(Grammar.this::getRuleSetByNonTerminal).collect(Collectors.toSet());
         }
 
-        public Set<Character> getChildrenAsCharSet(Character nonTerminal, boolean excludeRecursion) {
+        public Set<Character> getChildrenAsCharSet(Character nonTerminal, boolean excludeRecursion, boolean pureNonTerminal) {
             return ruleList.stream()
-                    .filter(x -> x.getLeftOperand().equals(nonTerminal))
+                    .filter(x -> x.getLeftOperand().equals(nonTerminal) &&
+                            (!pureNonTerminal ||
+                              x.isPureNonTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet)))
                     .map(x -> x.getNonTerminals(nonTerminalCharacterSet, excludeRecursion))
                     .reduce((a, b) -> {
                         a.addAll(b);
@@ -82,19 +86,20 @@ public class Grammar implements Cloneable, Serializable {
                     .orElse(new HashSet<>());
         }
 
-        public Set<Rule> getChildrenAsRuleSet(Character nonTerminal, boolean excludeRecursion) {
-            return getRuleSetByNonTerminalCharStream(getChildrenAsCharSet(nonTerminal, excludeRecursion).stream());
+        public Set<Rule> getChildrenAsRuleSet(Character nonTerminal, boolean excludeRecursion, boolean pureNonTerminal) {
+            return getRuleSetByNonTerminalCharStream(getChildrenAsCharSet(nonTerminal, excludeRecursion, pureNonTerminal).stream());
         }
 
         public boolean leadsToTerminal(Character nonTerminal, boolean strictly) {
-            if(!terminalService.getChildrenAsCharSet(nonTerminal).isEmpty()) {
+            if(!terminalService.getChildrenAsCharSet(nonTerminal, true).isEmpty()) {
                 if(strictly) {
-                    return nonTerminalService.getChildrenAsRuleSet(nonTerminal, false).stream()
+                    Set<Rule> rules = nonTerminalService.getChildrenAsRuleSet(nonTerminal, false, false);
+                    return rules.isEmpty() || nonTerminalService.getChildrenAsRuleSet(nonTerminal, false, false).stream()
                             .anyMatch(x -> x.isPureTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet));
                 }
                 return true;
             }
-            Set<Character> childrenCharSet = getChildrenAsCharSet(nonTerminal, true);
+            Set<Character> childrenCharSet = getChildrenAsCharSet(nonTerminal, true, false);
             if(!childrenCharSet.isEmpty()) {
                 for(Character ch : childrenCharSet) {
                     if(leadsToTerminal(ch, strictly)) return true;
@@ -112,6 +117,21 @@ public class Grammar implements Cloneable, Serializable {
                 }
             return false;
         }
+
+        public boolean hasRuleWithPureTerminalTransition(Character nonTerminal) {
+            return getRuleSetByNonTerminal(nonTerminal).stream()
+                    .anyMatch(x -> x.isPureTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet));
+        }
+
+        public boolean hasRuleWithPureNonTerminalTransition(Character nonTerminal) {
+            return getRuleSetByNonTerminal(nonTerminal).stream()
+                    .anyMatch(x -> x.isPureNonTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet));
+        }
+
+        public boolean isRecursive(Character nonTerminal) {
+            return getRuleSetByNonTerminal(nonTerminal).stream()
+                    .anyMatch(x -> x.doesRightOperandContainNonTerminal(nonTerminal));
+        }
     }
 
     public TerminalService terminalService = new TerminalService();
@@ -123,7 +143,7 @@ public class Grammar implements Cloneable, Serializable {
     public Grammar(Set<Character> terminalCharacterSet, Set<Character> nonTerminalCharacterSet, Character startSymbol, List<Rule>... ruleList) {
         this.terminalCharacterSet = terminalCharacterSet;
         this.nonTerminalCharacterSet = nonTerminalCharacterSet;
-        this.ruleList = new ArrayList<>();
+        this.ruleList = new HashSet<>();
         for (List<Rule> rules : ruleList) {
             this.ruleList.addAll(rules);
         }
@@ -142,6 +162,7 @@ public class Grammar implements Cloneable, Serializable {
 
     public Character getNewCharacterWithIncrement() {
         Character ch = newNonTerminalCharacter;
+        nonTerminalCharacterSet.add(ch);
         incrementCharacter();
         return ch;
     }
@@ -182,6 +203,14 @@ public class Grammar implements Cloneable, Serializable {
             a.addAll(b);
             return a;
         }).orElse(new HashSet<>());
+    }
+
+    public Map<Character, Collection<Rule>> getCharacterRuleMap() {
+        Map<Character, Collection<Rule>> map = new HashMap<>();
+        nonTerminalCharacterSet.forEach( x-> {
+            map.put(x, getRuleSetByNonTerminal(x));
+        });
+        return map;
     }
 
     public Grammar clone() {
