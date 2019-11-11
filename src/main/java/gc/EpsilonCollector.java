@@ -18,10 +18,10 @@ public class EpsilonCollector implements IGarbageCollector {
             List<Rule> newRules = RuleListFactory.createRuleList(newCharacter,
                     new String[]{grammar.getStartSymbol().toString(), Grammar.getEPSILON().toString() });
             grammar.setStartSymbol(newCharacter);
-            newRules.forEach(grammar.getRuleList()::add);
+            newRules.forEach(grammar.getRuleSet()::add);
             System.out.println("New start sym has been added");
         }
-        removeRules.forEach(grammar.getRuleList()::remove);
+        removeRules.forEach(grammar.getRuleSet()::remove);
         System.out.println("Obsolete rules have been removed");
         System.out.println("Cleaner job is done");
     }

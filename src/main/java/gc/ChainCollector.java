@@ -2,11 +2,9 @@ package gc;
 
 import grammar.Grammar;
 import grammar.Rule;
-import org.apache.commons.lang3.CharSequenceUtils;
 import util.ChainBuilder;
 import util.RuleListFactory;
 
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -19,13 +17,13 @@ public class ChainCollector implements IGarbageCollector {
         Character firstChar = charArray[0];
         Character lastChar = charArray[charArray.length-1];
         if(charArray.length >= 2 && !charArray[0].equals(charArray[1])) {
-            grammar.getRuleList().addAll(
+            grammar.getRuleSet().addAll(
                     RuleListFactory.createRuleList(firstChar, grammar.getRuleSetByNonTerminal(lastChar))
             );
             List<Rule> removeList = new ArrayList<>();
             for (int index = 0; index < charArray.length - 1; index++) {
                 final int i = index;
-                grammar.getRuleList().stream()
+                grammar.getRuleSet().stream()
                         .filter(x ->
                                 x != null &&
                                         x.getLeftOperand().equals(charArray[i]) &&
@@ -36,7 +34,7 @@ public class ChainCollector implements IGarbageCollector {
                             removeList.add(x);
                         });
             }
-            removeList.forEach(grammar.getRuleList()::remove);
+            removeList.forEach(grammar.getRuleSet()::remove);
         } else {
             grammar.getRuleSetByNonTerminal(firstChar).stream()
                     .filter(x -> x.doesRightOperandContainNonTerminal(lastChar))
@@ -53,7 +51,7 @@ public class ChainCollector implements IGarbageCollector {
                         StringBuilder sb = new StringBuilder();
                         x.forEach(sb::append);
                         System.out.println("Adding new rule for recursive rule " + firstChar.toString());
-                        grammar.getRuleList().add(new Rule(firstChar, sb.toString()));
+                        grammar.getRuleSet().add(new Rule(firstChar, sb.toString()));
                     });
         }
     }

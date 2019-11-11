@@ -1,12 +1,12 @@
 package grammar;
 
 import lombok.Data;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import util.Util;
 
 import java.io.Serializable;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -19,6 +19,23 @@ public class Rule implements Serializable {
     public Rule(Character leftOperand, List<Character> rightOperand) {
         this.leftOperand = leftOperand;
         this.rightOperand = rightOperand;
+    }
+
+    public void setRightOperand(List<Character> rightOperand) {
+        this.rightOperand = rightOperand;
+    }
+
+    public void setRightOperand(Character[] rightOperand) {
+        setRightOperand(Arrays.asList(rightOperand));
+    }
+
+    public void setRightOperand(String rightOperand) {
+        char[] primitiveCharArray = rightOperand.toCharArray();
+        Character[] charArray = new Character[primitiveCharArray.length];
+        for(int index = 0; index < primitiveCharArray.length; index++){
+            charArray[index] = primitiveCharArray[index];
+        }
+        setRightOperand(charArray);
     }
 
     public Rule(Character leftOperand, String rightOperand) {
@@ -52,7 +69,7 @@ public class Rule implements Serializable {
         return concatRightOperandToStringBuilder().toString();
     }
 
-    private StringBuilder concatRightOperandToStringBuilder() {
+    public StringBuilder concatRightOperandToStringBuilder() {
         StringBuilder stringBuilder = new StringBuilder();
         rightOperand.forEach(stringBuilder::append);
         return stringBuilder;
@@ -74,5 +91,19 @@ public class Rule implements Serializable {
         StringBuilder sb = new StringBuilder();
         rightOperand.forEach(sb::append);
         return String.format("%s -> %s", leftOperand.toString(), sb.toString());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Rule rule = (Rule) o;
+        return leftOperand.equals(rule.leftOperand) &&
+                concatRightOperandToString().equals(rule.concatRightOperandToString());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(leftOperand, concatRightOperandToString());
     }
 }

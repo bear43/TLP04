@@ -13,7 +13,7 @@ public class Grammar implements Cloneable, Serializable {
 
     private Set<Character> nonTerminalCharacterSet;
 
-    private Set<Rule> ruleList;
+    private Set<Rule> ruleSet;
 
     private Character startSymbol;
 
@@ -21,7 +21,7 @@ public class Grammar implements Cloneable, Serializable {
 
     public class TerminalService implements Serializable {
         public Set<Character> getParentsAsCharSet(Character terminal) {
-            return ruleList.stream().filter(x ->
+            return ruleSet.stream().filter(x ->
                     x.doesRightOperandContainTerminal(terminal)
             ).map(Rule::getLeftOperand).collect(Collectors.toSet());
         }
@@ -35,7 +35,7 @@ public class Grammar implements Cloneable, Serializable {
         }
 
         public Set<Character> getChildrenAsCharSet(Character nonTerminal, boolean pureTerminal) {
-            return ruleList.stream()
+            return ruleSet.stream()
                     .filter(x -> x.getLeftOperand().equals(nonTerminal) &&
                             (!pureTerminal ||
                                     x.isPureTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet)))
@@ -58,7 +58,7 @@ public class Grammar implements Cloneable, Serializable {
 
     public class NonTerminalService implements Serializable {
         public Set<Character> getParentsAsCharSet(Character nonTerminal, boolean excludeRecursion) {
-            return ruleList.stream().filter(
+            return ruleSet.stream().filter(
                     x ->
                             x.doesRightOperandContainNonTerminal(nonTerminal) &&
                                     !(excludeRecursion && x.getLeftOperand().equals(nonTerminal))
@@ -74,7 +74,7 @@ public class Grammar implements Cloneable, Serializable {
         }
 
         public Set<Character> getChildrenAsCharSet(Character nonTerminal, boolean excludeRecursion, boolean pureNonTerminal) {
-            return ruleList.stream()
+            return ruleSet.stream()
                     .filter(x -> x.getLeftOperand().equals(nonTerminal) &&
                             (!pureNonTerminal ||
                               x.isPureNonTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet)))
@@ -140,12 +140,12 @@ public class Grammar implements Cloneable, Serializable {
 
     private static final Character EPSILON = 'ε';
 
-    public Grammar(Set<Character> terminalCharacterSet, Set<Character> nonTerminalCharacterSet, Character startSymbol, List<Rule>... ruleList) {
+    public Grammar(Set<Character> terminalCharacterSet, Set<Character> nonTerminalCharacterSet, Character startSymbol, List<Rule>... ruleSet) {
         this.terminalCharacterSet = terminalCharacterSet;
         this.nonTerminalCharacterSet = nonTerminalCharacterSet;
-        this.ruleList = new HashSet<>();
-        for (List<Rule> rules : ruleList) {
-            this.ruleList.addAll(rules);
+        this.ruleSet = new HashSet<>();
+        for (List<Rule> rules : ruleSet) {
+            this.ruleSet.addAll(rules);
         }
         this.startSymbol = startSymbol;
     }
@@ -156,44 +156,40 @@ public class Grammar implements Cloneable, Serializable {
         return EPSILON;
     }
 
-    private void incrementCharacter() {
-        newNonTerminalCharacter = newNonTerminalCharacter++;
-    }
-
     public Character getNewCharacterWithIncrement() {
         Character ch = newNonTerminalCharacter;
         nonTerminalCharacterSet.add(ch);
-        incrementCharacter();
+        newNonTerminalCharacter++;
         return ch;
     }
 
     public Set<Rule> getRuleSetByNonTerminal(Character nonTerminal) {
-        return ruleList.stream().filter(x -> x.getLeftOperand().equals(nonTerminal)).collect(Collectors.toSet());
+        return ruleSet.stream().filter(x -> x.getLeftOperand().equals(nonTerminal)).collect(Collectors.toSet());
     }
 
     public void removeNonTerminalAndItsRules(Character nonTerminal) {
-        getRuleSetByNonTerminal(nonTerminal).forEach(ruleList::remove);
+        getRuleSetByNonTerminal(nonTerminal).forEach(ruleSet::remove);
     }
 
     public void removeNonTerminal(Character nonTerminal) {
         nonTerminalService.getParentsAsRuleSet(nonTerminal, true).stream()
                 .filter(x -> x.doesRightOperandContainNonTerminal(nonTerminal))
                 .forEach(x -> {
-                    ruleList.remove(x);
+                    ruleSet.remove(x);
                 });
         removeNonTerminalAndItsRules(nonTerminal);
         nonTerminalCharacterSet.remove(nonTerminal);
     }
 
     public void removeTerminal(Character terminal) {
-        ruleList.stream()
+        ruleSet.stream()
                 .filter(x -> x.doesRightOperandContainTerminal(terminal) && x.isPureTerminalInRightOperand(terminalCharacterSet, nonTerminalCharacterSet))
-                .forEach(ruleList::remove);
+                .forEach(ruleSet::remove);
         terminalCharacterSet.remove(terminal);
     }
 
     public List<Rule> getEpsilonRules() {
-        return ruleList.stream()
+        return ruleSet.stream()
                 .filter(x -> x.isEpsilon(EPSILON))
                 .collect(Collectors.toList());
     }
@@ -228,7 +224,7 @@ public class Grammar implements Cloneable, Serializable {
                 rules = new StringBuilder();
         nonTerminalCharacterSet.forEach(x -> nonTerminals.append(x).append("\n"));
         terminalCharacterSet.forEach(x -> terminals.append(x).append("\n"));
-        ruleList.forEach(x -> rules.append(x.toString()).append("\n"));
+        ruleSet.forEach(x -> rules.append(x.toString()).append("\n"));
         return String.format("NonTerminals:\n%s\nTerminals:\n%s\nStartSym: %s\nRules:\n%s",
                 nonTerminals.toString(), terminals.toString(), startSymbol.toString(), rules.toString());
     }
