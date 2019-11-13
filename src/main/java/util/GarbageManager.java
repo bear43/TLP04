@@ -19,7 +19,8 @@ public class GarbageManager {
                 new UselessCollector(),
                 new EpsilonCollector(),
                 new ChainCollector(),
-                new PrefixCollector()
+                new PrefixCollector(),
+                new RecursionCollector()
         ));
     }
 

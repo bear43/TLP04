@@ -9,7 +9,7 @@ import java.util.List;
 
 public class DefaultSplitter implements IPrefixSplitter {
 
-    private int[] getStartAndEndIndexOfPrefixInARule(StringBuilder rule, String prefix) throws Exception {
+    protected int[] getStartAndEndIndexOfPrefixInARule(StringBuilder rule, String prefix) throws Exception {
         if(prefix.isEmpty()) throw new Exception("Attempt to find start and end index with empty prefix");
         int index = rule.indexOf(prefix);
         if(index == -1) throw new Exception("Trying to split prefixed rule when there is no prefix!");
